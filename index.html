@@ -1465,7 +1465,7 @@
 
   .editor-tools {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+    grid-template-columns: repeat(3, 1fr);
     gap: 6px;
   }
   .editor-tool {
@@ -1846,12 +1846,12 @@
     </div>
     <aside class="editor-sidebar">
       <div class="editor-tools">
-        <button type="button" class="editor-tool active" data-tool="crop">CROP</button>
-        <button type="button" class="editor-tool" data-tool="split-v">SPLIT V</button>
-        <button type="button" class="editor-tool" data-tool="split-h">SPLIT H</button>
+        <button type="button" class="editor-tool" data-tool="rotate">ROTATE</button>
         <button type="button" class="editor-tool" data-tool="flip-h">FLIP H</button>
         <button type="button" class="editor-tool" data-tool="flip-v">FLIP V</button>
-        <button type="button" class="editor-tool" data-tool="rotate">ROTATE</button>
+        <button type="button" class="editor-tool active" data-tool="crop">CROP</button>
+        <button type="button" class="editor-tool" data-tool="split-h">SPLIT H</button>
+        <button type="button" class="editor-tool" data-tool="split-v">SPLIT V</button>
       </div>
 
       <div class="editor-control" data-for="crop">
