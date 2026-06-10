@@ -1,0 +1,882 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>PDF Merger — combine PDFs in your browser, no upload</title>
+<meta name="description" content="Drop PDFs, drag to reorder, download a single merged file. Runs entirely in your browser — no upload, no signup, nothing leaves your device." />
+<link rel="canonical" href="https://pdf-page-extractor.com/pdf-merger/" />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://pdf-page-extractor.com/pdf-merger/" />
+<meta property="og:title" content="PDF Merger — combine PDFs in your browser, no upload" />
+<meta property="og:description" content="Drop PDFs, drag to reorder, download a single merged file. Runs entirely in your browser." />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="PDF Merger — combine PDFs in your browser, no upload" />
+<meta name="twitter:description" content="Drop PDFs, drag to reorder, download a single merged file. Runs entirely in your browser." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --paper: #f4f2ec;
+    --paper-2: #ece9df;
+    --ink: #111111;
+    --ink-soft: #444444;
+    --ink-mute: #888888;
+    --rule: #111111;
+    --red: #1c9c3a;
+    --red-dark: #16802e;
+    --field: #ffffff;
+    --field-soft: #faf8f1;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+  }
+  .mono { font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace; }
+  a { color: inherit; }
+  a:hover { color: var(--red); }
+  .accent { color: var(--red); }
+  main {
+    flex: 1;
+    margin: 0;
+    padding: 28px 56px 32px;
+    position: relative;
+    width: 100%;
+  }
+  @media (max-width: 900px) { main { padding: 20px 24px 28px; } }
+
+  /* legend */
+  .legend {
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--ink);
+    padding: 8px 0;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .legend .dot { color: var(--red); margin-right: 6px; }
+  .legend .right { color: var(--ink-mute); }
+
+  /* slim header (shown when stage is open) */
+  .head-slim {
+    display: none;
+    align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--ink);
+    padding: 12px 0;
+  }
+  .head-slim-logo {
+    font-size: 13px;
+    letter-spacing: -0.01em;
+  }
+  .head-slim-logo a { font-weight: 800; text-decoration: none; }
+  .head-slim-meta {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+  }
+  .head-slim-meta .dot { color: var(--red); margin-right: 6px; }
+  body:has(.stage.show) .legend,
+  body:has(.stage.show) .title-block { display: none; }
+  body:has(.stage.show) .head-slim { display: flex; }
+
+  /* title block */
+  .title-block { padding: 28px 0 18px; border-bottom: 1px solid var(--ink); }
+  .title { margin: 0; font-size: clamp(48px, 8vw, 96px); font-weight: 800; letter-spacing: -0.04em; line-height: 1; }
+  .title .accent { color: var(--red); }
+  .subtitle { margin: 14px 0 0; max-width: 700px; font-size: 16px; color: var(--ink-soft); }
+
+  /* spec landing */
+  .spec-landing { position: relative; margin-top: 28px; }
+  .spec-grid { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 40px; }
+  @media (max-width: 1000px) { .spec-grid { grid-template-columns: 1fr; gap: 28px; } }
+
+  /* drop zone */
+  .drop {
+    position: relative;
+    display: block;
+    width: 100%;
+    background: var(--field);
+    border: 1px solid var(--ink);
+    cursor: pointer;
+    overflow: hidden;
+    min-height: 280px;
+  }
+  .drop input { display: none; }
+  .drop .crosshair { position: absolute; width: 20px; height: 20px; pointer-events: none; }
+  .drop .crosshair.tl { top: -10px; left: -10px; }
+  .drop .crosshair.tr { top: -10px; right: -10px; }
+  .drop .crosshair.bl { bottom: -10px; left: -10px; }
+  .drop .crosshair.br { bottom: -10px; right: -10px; }
+  .drop .crosshair path { stroke: var(--red); stroke-width: 1.5; }
+  .fig-stamp {
+    position: absolute; top: 14px; left: 14px;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--ink-mute);
+  }
+  .stamp-right {
+    position: absolute; top: 14px; right: 14px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-mute);
+  }
+  .drop-inner {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 14px; padding: 32px; text-align: center;
+  }
+  .drop-cue {
+    font-size: clamp(32px, 4.5vw, 52px);
+    font-weight: 800; letter-spacing: -0.02em; line-height: 1.04;
+    margin: 0;
+  }
+  .drop-cue .accent { color: var(--red); }
+  .drop-hint {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.04em; color: var(--ink-soft);
+    margin: 0;
+  }
+  .drop-hint .accent { color: var(--red); }
+  .drop:hover, .drop.drag { background: var(--field-soft); }
+  .drop.drag { background: rgba(28, 156, 58, 0.06); border-color: var(--red); }
+
+  /* dimension rulers */
+  .dim-row { display: flex; align-items: center; gap: 12px; margin-top: 18px; }
+  .tick-l, .tick-r {
+    flex: 0 0 12px; height: 12px;
+    border-left: 1px solid var(--ink); border-bottom: 1px solid var(--ink);
+  }
+  .tick-r { border-left: 0; border-right: 1px solid var(--ink); }
+  .dim-row .label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px; letter-spacing: 0.1em; color: var(--ink-mute); text-transform: uppercase;
+  }
+  .dim-row .label .accent { color: var(--red); }
+  .dim-row.bottom { margin-top: 18px; padding-top: 14px; border-top: 1px dashed var(--ink); }
+
+  /* note rail */
+  .note-rail {
+    border-left: 2px solid var(--red);
+    padding-left: 18px;
+    display: flex; flex-direction: column;
+  }
+  .note-tag {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--ink-mute); margin-bottom: 10px;
+  }
+  .note-headline { font-weight: 700; font-size: 18px; line-height: 1.3; margin: 0 0 12px; letter-spacing: -0.01em; }
+  .note-body {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px; line-height: 1.7; color: var(--ink-soft);
+  }
+  .note-body .accent { color: var(--red); font-weight: 600; }
+
+  /* tools tabs */
+  .tools-tabs { margin-top: auto; padding-top: 20px; display: flex; gap: 8px; }
+  .tools-tab { position: relative; flex: 1; }
+  .tools-tab-label {
+    display: flex; align-items: center; justify-content: space-between;
+    border: 1px solid var(--ink); padding: 10px 14px;
+    background: var(--paper);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
+    cursor: pointer;
+    transition: background 100ms ease, color 100ms ease;
+    color: var(--ink);
+  }
+  .tools-tab-label .tool-dot { color: var(--red); margin-right: 6px; font-size: 10px; }
+  .tools-tab-label .caret { font-size: 14px; line-height: 1; transition: transform 120ms ease; color: var(--ink-mute); }
+  .tools-tab:hover .tools-tab-label,
+  .tools-tab:focus-within .tools-tab-label { background: var(--ink); color: var(--paper); }
+  .tools-tab:hover .tools-tab-label .tool-dot,
+  .tools-tab:focus-within .tools-tab-label .tool-dot { color: var(--paper); }
+  .tools-tab:hover .tools-tab-label .caret,
+  .tools-tab:focus-within .tools-tab-label .caret { color: var(--paper); transform: translateY(-2px); }
+  .tools-menu {
+    position: absolute; bottom: calc(100% + 6px);
+    left: 0; right: 0;
+    background: var(--paper); border: 1px solid var(--ink);
+    opacity: 0; pointer-events: none; transform: translateY(4px);
+    transition: opacity 120ms ease, transform 120ms ease;
+    min-width: 280px; z-index: 10;
+  }
+  .tools-tab:first-child .tools-menu { left: 0; }
+  .tools-tab:last-child .tools-menu { right: 0; }
+  .tools-tab:hover .tools-menu,
+  .tools-tab:focus-within .tools-menu { opacity: 1; pointer-events: auto; transform: translateY(0); }
+  .tool-row {
+    display: block; text-decoration: none; color: var(--ink);
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--ink);
+  }
+  .tool-row:last-child { border-bottom: 0; }
+  .tool-row.live { cursor: pointer; }
+  .tool-row.live:hover { background: var(--field-soft); }
+  .tool-row.soon { cursor: not-allowed; opacity: 0.55; }
+  .tool-row.you { background: var(--paper-2); cursor: default; }
+  .tool-row-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .tool-row .tool-dot { font-size: 10px; line-height: 1; color: var(--red); margin-right: 6px; }
+  .tool-row.soon .tool-dot, .tool-row.you .tool-dot { color: var(--ink-mute); }
+  .tool-name { flex: 1; font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.04em; font-weight: 600; }
+  .tool-status { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.16em; color: var(--red); }
+  .tool-row.soon .tool-status, .tool-row.you .tool-status { color: var(--ink-mute); }
+  .tool-tag {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px; letter-spacing: 0.06em; color: var(--ink-mute); margin-top: 4px;
+  }
+
+  /* controls bar */
+  .controls {
+    margin-top: 22px;
+    border: 1px solid var(--ink);
+    background: var(--field);
+    padding: 16px 18px;
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  }
+  .controls .meta {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px; letter-spacing: 0.06em; color: var(--ink-mute); text-transform: uppercase;
+    flex: 1;
+  }
+  .controls .meta b { color: var(--ink); font-weight: 700; }
+  .btn {
+    appearance: none; cursor: pointer;
+    background: var(--ink); color: var(--paper);
+    border: 1px solid var(--ink);
+    font-family: 'Inter', sans-serif;
+    font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 10px 16px;
+    transition: background 100ms ease;
+  }
+  .btn:hover { background: var(--ink); opacity: 0.85; }
+  .btn.primary { background: var(--red); border-color: var(--red-dark); }
+  .btn.primary:hover { background: var(--red-dark); opacity: 1; }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn.ghost { background: transparent; color: var(--ink); }
+  .btn.ghost:hover { background: var(--paper-2); }
+
+  /* PDF list */
+  .pdf-list { margin-top: 18px; display: flex; flex-direction: column; gap: 8px; }
+  .pdf-row {
+    display: grid;
+    grid-template-columns: 28px 36px minmax(0,1fr) 90px 80px 32px;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 14px;
+    background: var(--field);
+    border: 1px solid var(--ink);
+    cursor: grab;
+    transition: background 100ms ease;
+  }
+  .pdf-row:active { cursor: grabbing; }
+  .pdf-row:hover { background: var(--field-soft); }
+  .pdf-row.dragging { opacity: 0.45; }
+  .pdf-row.drop-target { border-color: var(--red); border-width: 2px; padding: 9px 13px; }
+  .pdf-row .grip {
+    color: var(--ink-mute); font-family: 'IBM Plex Mono', monospace; font-size: 14px;
+    text-align: center; user-select: none;
+  }
+  .pdf-row .idx {
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+    color: var(--red); font-weight: 700; letter-spacing: 0.04em; text-align: center;
+  }
+  .pdf-row .name {
+    font-size: 13px; font-weight: 600;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .pdf-row .pages, .pdf-row .size {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px; letter-spacing: 0.04em; color: var(--ink-mute); text-transform: uppercase;
+    text-align: right;
+  }
+  .pdf-row .pages b, .pdf-row .size b { color: var(--ink); font-weight: 700; }
+  .pdf-row .remove {
+    appearance: none; background: none; border: none; cursor: pointer;
+    color: var(--ink-mute); font-size: 18px; line-height: 1; padding: 0;
+  }
+  .pdf-row .remove:hover { color: var(--red); }
+  .pdf-row.bad { border-color: #b94a3a; background: rgba(185, 74, 58, 0.04); }
+  .pdf-row.bad .pages { color: #b94a3a; }
+
+  .empty-hint {
+    margin-top: 18px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px; color: var(--ink-mute); letter-spacing: 0.06em; text-transform: uppercase;
+    text-align: center;
+    padding: 20px; border: 1px dashed var(--ink);
+    background: var(--paper-2);
+  }
+
+  /* stage (post-merge) */
+  .stage { display: none; }
+  .stage.show { display: block; }
+  .sheet-title { margin: 0 0 16px; }
+  .sheet-title h1 { margin: 0; font-size: clamp(36px, 6vw, 64px); font-weight: 800; letter-spacing: -0.03em; }
+  .sheet-title .accent { color: var(--red); }
+  .sheet-title .rec-dot { color: var(--red); margin-right: 8px; font-size: 0.6em; vertical-align: middle; }
+  .sheet-meta {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px; letter-spacing: 0.1em; color: var(--ink-mute); text-transform: uppercase;
+    margin-top: 6px;
+  }
+  .progress-card {
+    border: 1px solid var(--ink); background: var(--field);
+    padding: 22px; margin-top: 18px;
+    display: grid; gap: 12px;
+  }
+  .progress-bar { height: 8px; background: var(--paper-2); border: 1px solid var(--ink); position: relative; }
+  .progress-bar > span {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    background: var(--red);
+    transition: width 120ms ease;
+  }
+  .progress-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px; letter-spacing: 0.04em; color: var(--ink);
+    display: flex; justify-content: space-between;
+  }
+  .progress-meta {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px; letter-spacing: 0.05em; color: var(--ink-mute);
+  }
+
+  .result-card {
+    border: 1px solid var(--ink); background: var(--field);
+    padding: 24px; margin-top: 18px;
+    display: grid; grid-template-columns: 1fr 220px; gap: 24px;
+    align-items: center;
+  }
+  @media (max-width: 720px) { .result-card { grid-template-columns: 1fr; } }
+  .result-card .info b { color: var(--red); }
+  .result-card .stats {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px; line-height: 1.8; color: var(--ink-soft);
+  }
+  .result-card .stats .k { color: var(--ink-mute); display: inline-block; min-width: 110px; }
+  .result-card .stats .v { color: var(--ink); font-weight: 600; }
+
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+
+  .err {
+    margin-top: 14px; padding: 14px;
+    border: 1px solid #b94a3a; background: rgba(185, 74, 58, 0.06);
+    color: #8a3022;
+    font-family: 'IBM Plex Mono', monospace; font-size: 12px; line-height: 1.6;
+  }
+
+  /* footer */
+  .footer {
+    border-top: 1px solid var(--ink);
+    padding: 18px 0;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    display: flex; justify-content: space-between;
+  }
+</style>
+</head>
+<body>
+
+<main>
+
+  <!-- LEGEND (landing) -->
+  <div class="legend">
+    <span><span class="dot">●</span>&nbsp;ME-01 / IN-BROWSER PDF MERGER</span>
+    <span class="right">v1 · stays in your browser</span>
+  </div>
+
+  <!-- SLIM HEADER (stage) -->
+  <div class="head-slim">
+    <div class="head-slim-logo"><a href="/">PDF Page Extractor<span class="accent">.</span></a> &nbsp;/&nbsp; <span style="font-weight:600;font-size:14px;letter-spacing:-0.01em;">PDF Merger</span></div>
+    <div class="head-slim-meta"><span class="dot">●</span>ME-01</div>
+  </div>
+
+  <!-- TITLE BLOCK -->
+  <div class="title-block">
+    <h1 class="title">PDF Merger<span class="accent">.</span></h1>
+    <p class="subtitle">A specification for a tool that merges PDFs. Local. Single-purpose. Drop, drag to reorder, download one file.</p>
+  </div>
+
+  <!-- LANDING -->
+  <section class="spec-landing" id="landing">
+    <div class="spec-grid">
+      <div>
+        <div class="dim-row">
+          <div class="tick-l"></div>
+          <div class="label">↳ flow: <span class="accent">drop</span> → reorder → merge → save · network: <span class="accent">∅</span></div>
+          <div class="tick-r"></div>
+        </div>
+
+        <label class="drop" id="drop">
+          <input type="file" id="file" accept="application/pdf,.pdf" multiple />
+          <svg class="crosshair tl" viewBox="0 0 20 20"><path d="M10 0v20M0 10h20"/></svg>
+          <svg class="crosshair tr" viewBox="0 0 20 20"><path d="M10 0v20M0 10h20"/></svg>
+          <svg class="crosshair bl" viewBox="0 0 20 20"><path d="M10 0v20M0 10h20"/></svg>
+          <svg class="crosshair br" viewBox="0 0 20 20"><path d="M10 0v20M0 10h20"/></svg>
+          <div class="fig-stamp">FIG. 01 — DROP ZONE</div>
+          <div class="stamp-right">accepts: .pdf · multi</div>
+          <div class="drop-inner">
+            <p class="drop-cue">Place PDFs <span class="accent">here</span></p>
+            <p class="drop-hint">or click to browse · drop multiple to merge in order</p>
+          </div>
+        </label>
+
+        <div class="dim-row bottom">
+          <div class="tick-l"></div>
+          <div class="label">↳ parse → merge → write · powered by <span class="accent">pdf-lib</span></div>
+          <div class="tick-r"></div>
+        </div>
+
+        <!-- list of staged PDFs -->
+        <div id="listArea"></div>
+      </div>
+
+      <aside class="note-rail">
+        <div class="note-tag">NOTE A — PRIVACY</div>
+        <p class="note-headline">PDFs are merged inside your browser, not uploaded.</p>
+        <div class="note-body">
+          decode &nbsp;→ <span class="accent">browser bytes</span><br />
+          merge &nbsp;&nbsp;→ pdf-lib (WASM-free)<br />
+          output &nbsp;→ single .pdf, blob URL<br />
+          network →&nbsp;<span class="accent">library load only</span> (cached)
+        </div>
+
+        <div class="tools-tabs">
+          <div class="tools-tab" tabindex="0">
+            <div class="tools-menu">
+              <a class="tool-row live" href="https://pdf-page-extractor.com/" target="_self">
+                <div class="tool-row-top">
+                  <span><span class="tool-dot">●</span><span class="tool-name">PDF PAGE EXTRACTOR</span></span>
+                  <span class="tool-status">LIVE</span>
+                </div>
+                <div class="tool-tag">extract pages from PDFs</div>
+              </a>
+              <div class="tool-row you">
+                <div class="tool-row-top">
+                  <span><span class="tool-dot">●</span><span class="tool-name">PDF MERGER</span></span>
+                  <span class="tool-status">YOU ARE HERE</span>
+                </div>
+                <div class="tool-tag">merge PDFs in order</div>
+              </div>
+              <div class="tool-row soon">
+                <div class="tool-row-top">
+                  <span><span class="tool-dot">○</span><span class="tool-name">PDF SPLITTER</span></span>
+                  <span class="tool-status">SOON</span>
+                </div>
+                <div class="tool-tag">split a PDF into ranges</div>
+              </div>
+              <div class="tool-row soon">
+                <div class="tool-row-top">
+                  <span><span class="tool-dot">○</span><span class="tool-name">PDF COMPRESSOR</span></span>
+                  <span class="tool-status">SOON</span>
+                </div>
+                <div class="tool-tag">shrink PDF file size</div>
+              </div>
+            </div>
+            <div class="tools-tab-label">
+              <span><span class="tool-dot">●</span>PDF TOOLS</span>
+              <span class="caret">▴</span>
+            </div>
+          </div>
+          <div class="tools-tab" tabindex="0">
+            <div class="tools-menu">
+              <a class="tool-row live" href="https://frames-generator.com/" target="_blank" rel="noopener">
+                <div class="tool-row-top">
+                  <span><span class="tool-dot">●</span><span class="tool-name">FRAMES GENERATOR</span></span>
+                  <span class="tool-status">LIVE</span>
+                </div>
+                <div class="tool-tag">video → still frames</div>
+              </a>
+              <a class="tool-row live" href="https://frames-generator.com/image-resizer/" target="_blank" rel="noopener">
+                <div class="tool-row-top">
+                  <span><span class="tool-dot">●</span><span class="tool-name">IMAGE RESIZER</span></span>
+                  <span class="tool-status">LIVE</span>
+                </div>
+                <div class="tool-tag">resize / convert images</div>
+              </a>
+            </div>
+            <div class="tools-tab-label">
+              <span><span class="tool-dot">●</span>OTHER TOOLS</span>
+              <span class="caret">▴</span>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- STAGE (during/after merge) -->
+  <section class="stage" id="stage">
+    <header class="sheet-title">
+      <h1><span class="rec-dot">●</span>Merging<span class="accent">.</span></h1>
+      <div class="sheet-meta" id="sheetMeta">—</div>
+    </header>
+    <div id="progressArea"></div>
+    <div id="resultArea"></div>
+    <div id="errorArea"></div>
+    <div class="actions" id="actionsArea" style="display:none">
+      <button class="btn primary" id="downloadBtn">Download merged.pdf</button>
+      <button class="btn ghost" id="resetBtn">Merge another set</button>
+    </div>
+  </section>
+
+  <div class="footer">
+    <span>ME-01 · COMPILED IN-BROWSER · NO TELEMETRY</span>
+    <span>SHIPPED FROM PDF-PAGE-EXTRACTOR.COM</span>
+  </div>
+
+</main>
+
+<script>
+(() => {
+  'use strict';
+
+  const PDF_LIB_CDN = 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js';
+
+  let pdfLibPromise = null;
+  function loadPdfLib() {
+    if (window.PDFLib) return Promise.resolve(window.PDFLib);
+    if (pdfLibPromise) return pdfLibPromise;
+    pdfLibPromise = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = PDF_LIB_CDN;
+      s.onload = () => window.PDFLib ? resolve(window.PDFLib) : reject(new Error('pdf-lib loaded but PDFLib global is missing'));
+      s.onerror = () => reject(new Error('Failed to load pdf-lib from CDN'));
+      document.head.appendChild(s);
+    });
+    return pdfLibPromise;
+  }
+
+  const $ = (id) => document.getElementById(id);
+  const els = {
+    drop: $('drop'), file: $('file'),
+    listArea: $('listArea'),
+    landing: $('landing'),
+    stage: $('stage'),
+    sheetMeta: $('sheetMeta'),
+    progressArea: $('progressArea'),
+    resultArea: $('resultArea'),
+    errorArea: $('errorArea'),
+    actionsArea: $('actionsArea'),
+    downloadBtn: $('downloadBtn'),
+    resetBtn: $('resetBtn')
+  };
+
+  // ── state ──
+  /** @type {{id:string, file:File, pageCount:number|null, error:string|null, bytes:ArrayBuffer|null}[]} */
+  const items = [];
+  let mergedBlob = null;
+  let mergedUrl = null;
+
+  function uid() { return Math.random().toString(36).slice(2, 9); }
+  function bytes(n) {
+    if (n < 1024) return n + ' B';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+    return (n / 1024 / 1024).toFixed(2) + ' MB';
+  }
+
+  // ── add files (de-duplicated by name+size, append to end) ──
+  async function addFiles(fileList) {
+    const incoming = [...fileList].filter(f => f && f.type === 'application/pdf' || /\.pdf$/i.test(f.name));
+    if (!incoming.length) return;
+
+    for (const file of incoming) {
+      // skip exact-duplicate (same name and size already present)
+      if (items.some(it => it.file.name === file.name && it.file.size === file.size)) continue;
+      const item = { id: uid(), file, pageCount: null, error: null, bytes: null };
+      items.push(item);
+      renderList();
+      // probe page count async; this also catches encrypted PDFs early
+      probeItem(item).then(renderList);
+    }
+  }
+
+  async function probeItem(item) {
+    try {
+      const PDFLib = await loadPdfLib();
+      const buf = await item.file.arrayBuffer();
+      // Use ignoreEncryption so password-protected PDFs surface a clear error instead of a thrown rejection.
+      const doc = await PDFLib.PDFDocument.load(buf, { ignoreEncryption: true });
+      if (doc.isEncrypted) {
+        item.error = 'encrypted PDF — remove password first';
+      } else {
+        item.pageCount = doc.getPageCount();
+        item.bytes = buf;
+      }
+    } catch (e) {
+      item.error = (e && e.message) ? e.message : 'could not parse';
+    }
+    return item;
+  }
+
+  function removeItem(id) {
+    const i = items.findIndex(it => it.id === id);
+    if (i >= 0) items.splice(i, 1);
+    renderList();
+  }
+
+  // ── drag-to-reorder ──
+  let dragId = null;
+  function onRowDragStart(e) {
+    dragId = e.currentTarget.dataset.id;
+    e.currentTarget.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    // Firefox needs a payload to actually start the drag
+    try { e.dataTransfer.setData('text/plain', dragId); } catch (_) {}
+  }
+  function onRowDragOver(e) {
+    e.preventDefault();
+    const t = e.currentTarget;
+    if (t.dataset.id !== dragId) t.classList.add('drop-target');
+    e.dataTransfer.dropEffect = 'move';
+  }
+  function onRowDragLeave(e) { e.currentTarget.classList.remove('drop-target'); }
+  function onRowDrop(e) {
+    e.preventDefault();
+    e.currentTarget.classList.remove('drop-target');
+    const targetId = e.currentTarget.dataset.id;
+    if (!dragId || dragId === targetId) return;
+    const fromIdx = items.findIndex(it => it.id === dragId);
+    const toIdx = items.findIndex(it => it.id === targetId);
+    if (fromIdx < 0 || toIdx < 0) return;
+    const [moved] = items.splice(fromIdx, 1);
+    items.splice(toIdx, 0, moved);
+    renderList();
+  }
+  function onRowDragEnd(e) {
+    e.currentTarget.classList.remove('dragging');
+    dragId = null;
+    [...document.querySelectorAll('.pdf-row.drop-target')].forEach(el => el.classList.remove('drop-target'));
+  }
+
+  // ── render ──
+  function renderList() {
+    const valid = items.filter(it => it.error == null);
+    const totalPages = valid.reduce((a, it) => a + (it.pageCount || 0), 0);
+    const totalSize  = items.reduce((a, it) => a + it.file.size, 0);
+
+    if (!items.length) {
+      els.listArea.innerHTML = `
+        <div class="empty-hint">No PDFs yet · drop one or more above to start</div>
+      `;
+      return;
+    }
+
+    const rows = items.map((it, idx) => `
+      <div class="pdf-row ${it.error ? 'bad' : ''}" data-id="${it.id}" draggable="true">
+        <div class="grip" title="drag to reorder">⋮⋮</div>
+        <div class="idx">${String(idx + 1).padStart(2, '0')}</div>
+        <div class="name" title="${escapeAttr(it.file.name)}">${escapeHtml(it.file.name)}</div>
+        <div class="pages">${it.error
+          ? `<span title="${escapeAttr(it.error)}">⚠ ${escapeHtml(it.error.slice(0, 24))}</span>`
+          : (it.pageCount == null ? 'reading…' : `<b>${it.pageCount}</b> page${it.pageCount === 1 ? '' : 's'}`)}</div>
+        <div class="size"><b>${bytes(it.file.size)}</b></div>
+        <button class="remove" data-id="${it.id}" title="remove">×</button>
+      </div>
+    `).join('');
+
+    const ready = valid.length >= 2;
+    const meta = items.length === 1
+      ? `1 PDF queued — drop at least one more to merge`
+      : `<b>${items.length}</b> PDFs queued · <b>${totalPages}</b> total pages · <b>${bytes(totalSize)}</b>`;
+
+    els.listArea.innerHTML = `
+      <div class="pdf-list" id="pdfList">${rows}</div>
+      <div class="controls">
+        <div class="meta">${meta}</div>
+        <button class="btn ghost" id="addMoreBtn">+ Add more</button>
+        <button class="btn ghost" id="clearBtn">Clear all</button>
+        <button class="btn primary" id="mergeBtn" ${ready ? '' : 'disabled'}>Merge → download</button>
+      </div>
+    `;
+
+    // wire row events
+    [...els.listArea.querySelectorAll('.pdf-row')].forEach(row => {
+      row.addEventListener('dragstart', onRowDragStart);
+      row.addEventListener('dragover', onRowDragOver);
+      row.addEventListener('dragleave', onRowDragLeave);
+      row.addEventListener('drop', onRowDrop);
+      row.addEventListener('dragend', onRowDragEnd);
+    });
+    [...els.listArea.querySelectorAll('.remove')].forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        removeItem(btn.dataset.id);
+      });
+    });
+    $('addMoreBtn').addEventListener('click', () => els.file.click());
+    $('clearBtn').addEventListener('click', () => { items.length = 0; renderList(); });
+    $('mergeBtn').addEventListener('click', startMerge);
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function escapeAttr(s) { return escapeHtml(s); }
+
+  // ── stage / progress ──
+  function enterStage() {
+    els.stage.classList.add('show');
+    els.landing.style.display = 'none';
+    els.resultArea.innerHTML = '';
+    els.errorArea.innerHTML = '';
+    els.actionsArea.style.display = 'none';
+  }
+  function exitStage() {
+    els.stage.classList.remove('show');
+    els.landing.style.display = '';
+    clearProgress();
+    els.resultArea.innerHTML = '';
+    els.errorArea.innerHTML = '';
+    els.actionsArea.style.display = 'none';
+    if (mergedUrl) { URL.revokeObjectURL(mergedUrl); mergedUrl = null; }
+    mergedBlob = null;
+  }
+  function setProgress(label, fraction, meta) {
+    const pct = Math.max(0, Math.min(100, Math.round((fraction || 0) * 100)));
+    els.progressArea.innerHTML = `
+      <div class="progress-card">
+        <div class="progress-label"><span>${escapeHtml(label)}</span><span>${pct}%</span></div>
+        <div class="progress-bar"><span style="width:${pct}%"></span></div>
+        <div class="progress-meta">${escapeHtml(meta || '')}</div>
+      </div>
+    `;
+  }
+  function clearProgress() { els.progressArea.innerHTML = ''; }
+  function showError(html) { els.errorArea.innerHTML = `<div class="err">${html}</div>`; }
+
+  // ── merge ──
+  async function startMerge() {
+    const valid = items.filter(it => it.error == null);
+    if (valid.length < 2) return;
+
+    enterStage();
+    els.sheetMeta.textContent = `${valid.length} PDFs · ${valid.reduce((a, it) => a + (it.pageCount || 0), 0)} pages`;
+    setProgress('Loading pdf-lib…', 0.05, 'first run downloads ~310 KB; cached after');
+
+    let PDFLib;
+    try { PDFLib = await loadPdfLib(); }
+    catch (e) { clearProgress(); showError(`Couldn't load pdf-lib.<br/><br/>${escapeHtml(e.message || String(e))}`); return; }
+
+    const out = await PDFLib.PDFDocument.create();
+    const total = valid.length;
+
+    for (let i = 0; i < total; i++) {
+      const it = valid[i];
+      setProgress(`Merging ${i + 1}/${total} · ${it.file.name}`, (i + 0.2) / total, `${it.pageCount || '?'} pages`);
+      try {
+        // Reload from buffer each time — can't reuse a PDFDocument instance across copyPages calls reliably
+        const buf = it.bytes || await it.file.arrayBuffer();
+        const src = await PDFLib.PDFDocument.load(buf, { ignoreEncryption: true });
+        if (src.isEncrypted) {
+          throw new Error(`"${it.file.name}" is encrypted`);
+        }
+        const indices = src.getPageIndices();
+        const copied = await out.copyPages(src, indices);
+        copied.forEach(p => out.addPage(p));
+        setProgress(`Merging ${i + 1}/${total} · ${it.file.name}`, (i + 1) / total, `${it.pageCount || indices.length} pages added`);
+      } catch (e) {
+        clearProgress();
+        showError(`Failed merging <b>${escapeHtml(it.file.name)}</b>.<br/><br/>${escapeHtml(e.message || String(e))}`);
+        return;
+      }
+    }
+
+    setProgress('Writing merged PDF…', 0.97, 'serializing');
+    const outBytes = await out.save();
+    mergedBlob = new Blob([outBytes], { type: 'application/pdf' });
+    if (mergedUrl) URL.revokeObjectURL(mergedUrl);
+    mergedUrl = URL.createObjectURL(mergedBlob);
+
+    clearProgress();
+    showResult(valid, outBytes.byteLength);
+  }
+
+  function showResult(valid, outSize) {
+    const totalPages = valid.reduce((a, it) => a + (it.pageCount || 0), 0);
+    const totalIn = valid.reduce((a, it) => a + it.file.size, 0);
+    els.resultArea.innerHTML = `
+      <div class="result-card">
+        <div class="info">
+          <h2 style="margin:0 0 8px;font-size:24px;letter-spacing:-0.02em;">Merged <b>${valid.length}</b> PDFs into one.</h2>
+          <p style="margin:0;color:var(--ink-soft);font-size:14px;">Click download below or save the file from the link to keep it.</p>
+        </div>
+        <div class="stats">
+          <div><span class="k">files in</span><span class="v">${valid.length}</span></div>
+          <div><span class="k">pages</span><span class="v">${totalPages}</span></div>
+          <div><span class="k">size in</span><span class="v">${bytes(totalIn)}</span></div>
+          <div><span class="k">size out</span><span class="v">${bytes(outSize)}</span></div>
+        </div>
+      </div>
+    `;
+    els.actionsArea.style.display = 'flex';
+  }
+
+  // ── events ──
+  els.file.addEventListener('change', (e) => {
+    addFiles(e.target.files);
+    e.target.value = '';
+  });
+
+  ['dragenter', 'dragover'].forEach(ev => {
+    els.drop.addEventListener(ev, e => { e.preventDefault(); els.drop.classList.add('drag'); });
+  });
+  ['dragleave', 'drop'].forEach(ev => {
+    els.drop.addEventListener(ev, e => { e.preventDefault(); els.drop.classList.remove('drag'); });
+  });
+  els.drop.addEventListener('drop', e => {
+    if (e.dataTransfer && e.dataTransfer.files) addFiles(e.dataTransfer.files);
+  });
+
+  // also accept drops anywhere inside .spec-landing once the user has staged at least one file
+  // (lets you pile more PDFs onto the list without scrolling back to the drop zone)
+  document.addEventListener('dragover', e => { if (items.length) e.preventDefault(); });
+  document.addEventListener('drop', e => {
+    if (!items.length) return;
+    // only handle drops outside the row dragdrop scope (no row currently being dragged)
+    if (dragId) return;
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+      e.preventDefault();
+      addFiles(e.dataTransfer.files);
+    }
+  });
+
+  els.downloadBtn.addEventListener('click', () => {
+    if (!mergedBlob || !mergedUrl) return;
+    const a = document.createElement('a');
+    a.href = mergedUrl;
+    a.download = 'merged.pdf';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  });
+  els.resetBtn.addEventListener('click', () => {
+    items.length = 0;
+    exitStage();
+    renderList();
+  });
+
+  // init
+  renderList();
+})();
+</script>
+</body>
+</html>
